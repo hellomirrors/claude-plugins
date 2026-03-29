@@ -1,0 +1,5 @@
+{
+  "name": "hm-webapp-stack",
+  "description": "Opinionated hellomirrors web-app stack: Next.js, shadcn/ui, Tailwind CSS 4, Ultracite/Biome, Zod, TanStack Query/Form",
+  "version": "1.0.0"
+}
