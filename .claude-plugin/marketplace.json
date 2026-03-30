@@ -1,0 +1,24 @@
+{
+  "name": "hellomirrors",
+  "owner": {
+    "name": "hellomirrors"
+  },
+  "metadata": {
+    "description": "hellomirrors Claude Code plugins",
+    "version": "1.0.0",
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "hm-webapp-stack",
+      "source": "./plugins/hm-webapp-stack",
+      "description": "Opinionated hellomirrors web-app stack: Next.js, shadcn/ui, Tailwind CSS 4, Ultracite/Biome, Zod, TanStack Query/Form",
+      "version": "1.0.0",
+      "author": {
+        "name": "hellomirrors"
+      },
+      "keywords": ["nextjs", "shadcn", "tailwind", "webapp"],
+      "category": "development"
+    }
+  ]
+}
