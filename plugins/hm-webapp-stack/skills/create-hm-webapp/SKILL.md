@@ -1,7 +1,7 @@
 ---
 name: create-hm-webapp
 description: Erstellt eine opinionated hellomirrors web-app unter Nutzung von NextJS, shadcn/ui, Tailwind CSS 4, Ultracite/Biome, Zod, TanStack Query/Form, Zustand
-allowed-tools: Bash(bunx *), Bash(bun *), Bash(cd *), Bash(mkdir *), Bash(rm *), Read, Write, Edit, Glob, Grep
+allowed-tools: Bash(pnpm *), Bash(pnpx *), Bash(npx *), Bash(cd *), Bash(mkdir *), Bash(rm *), Bash(ls *), Read, Write, Edit, Glob, Grep
 ---
 
 # HM Web-App Skill
@@ -11,6 +11,7 @@ Dieser Skill erstellt eine neue Web-Applikation nach dem hellomirrors-Standard-S
 Frage den User **vor dem Start** nach:
 1. **Projektname** — wird als Verzeichnisname und in package.json verwendet
 2. **Kurze Beschreibung** der App
+3. **Authentik Login?** — Soll die App über authentik.hellomirrors.com abgesichert werden? (Standard: ja)
 
 ---
 
@@ -21,7 +22,7 @@ Frage den User **vor dem Start** nach:
 Führe folgenden Befehl aus, um das Next.js-Projekt zu erstellen:
 
 ```bash
-bunx create-next-app@latest <projektname> \
+pnpx create-next-app@latest <projektname> \
   --typescript \
   --tailwind \
   --biome \
@@ -29,11 +30,11 @@ bunx create-next-app@latest <projektname> \
   --src-dir \
   --import-alias "@/*" \
   --turbopack \
-  --use-bun \
+  --use-pnpm \
   --yes
 ```
 
-> `--biome` sorgt dafür, dass Biome statt ESLint eingerichtet wird — kein manuelles Aufräumen von ESLint-Dateien nötig. `--use-bun` stellt sicher, dass bun als Package Manager genutzt wird.
+> `--biome` sorgt dafür, dass Biome statt ESLint eingerichtet wird — kein manuelles Aufräumen von ESLint-Dateien nötig. `--use-pnpm` stellt sicher, dass pnpm als Package Manager genutzt wird.
 
 ### 1.2 Dependencies installieren
 
@@ -43,30 +44,68 @@ Wechsle ins Projektverzeichnis und installiere die zusätzlichen Pakete:
 cd <projektname>
 
 # Core UI & Styling
-bun add clsx tailwind-merge class-variance-authority tw-animate-css lucide-react next-themes sonner
+pnpm add clsx tailwind-merge class-variance-authority tw-animate-css lucide-react next-themes sonner
 
 # Data Fetching & Forms
-bun add @tanstack/react-query @tanstack/react-form zod
+pnpm add @tanstack/react-query @tanstack/react-form zod
 
 # State Management (optional — nur installieren wenn Client-State benötigt wird)
-bun add zustand
+pnpm add zustand
 
 # Dev Dependencies (ultracite erweitert die von create-next-app installierte Biome-Config)
-bun add -D ultracite vitest lefthook @types/node @types/react
+pnpm add -D ultracite vitest lefthook @types/node @types/react
 ```
 
 > **Zustand** ist optional. Installiere es nur, wenn die App Client-State hat, der nicht vom Server kommt (z.B. Sidebar offen/zu, aktiver Tab, User-Präferenzen). Viele Apps kommen mit React Query allein aus.
 
+### 1.2.1 Biome-Version pinnen
+
+**Kritisch:** Ultracite deklariert die exakte Biome-Version die es benötigt als `peerDependency`. Die von `create-next-app` installierte Biome-Version kann inkompatibel sein. Prüfe welche Version Ultracite erwartet und installiere diese:
+
+```bash
+# Prüfe welche Biome-Version ultracite erwartet
+grep biome node_modules/ultracite/package.json
+# Installiere die exakte Version (Beispiel: 2.4.11)
+pnpm add -D @biomejs/biome@2.4.11
+```
+
+Wenn `create-next-app` eine `biome.json` erstellt hat, **lösche sie** — wir nutzen `biome.jsonc` (siehe Phase 2.1):
+
+```bash
+rm biome.json
+```
+
+### 1.2.2 pnpm onlyBuiltDependencies
+
+Füge in `package.json` die `pnpm`-Sektion hinzu, damit native Dependencies kompiliert werden:
+
+```json
+{
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "sharp",
+      "unrs-resolver",
+      "lefthook",
+      "@biomejs/biome"
+    ]
+  }
+}
+```
+
+Falls `better-sqlite3` oder andere native Pakete verwendet werden, diese ebenfalls hier hinzufügen.
+
 ### 1.3 shadcn/ui initialisieren
 
 ```bash
-bunx shadcn@latest init --style base-mira --base-color mist --css-variables --rsc --tsx
+pnpx shadcn@latest init --preset mira --css-variables -y
 ```
+
+> **Hinweis:** Die CLI-Optionen ändern sich gelegentlich. Falls `--preset mira` nicht funktioniert, nutze `pnpx shadcn@latest init --help` um die aktuellen Optionen zu prüfen.
 
 Danach installiere die Standard-Komponenten. Nutze bevorzugt den **shadcn MCP Server** (Tool `add_component`) um Komponenten hinzuzufügen, da dieser die beste Kompatibilität mit dem gewählten Preset sicherstellt. Fallback auf CLI:
 
 ```bash
-bunx shadcn@latest add input button label alert-dialog select checkbox radio-group badge card scroll-area switch textarea tooltip dialog tabs separator sheet
+pnpx shadcn@latest add input button label alert-dialog select checkbox radio-group badge card scroll-area switch textarea tooltip dialog tabs separator sheet
 ```
 
 ### 1.4 MCP Server einrichten
@@ -77,16 +116,16 @@ Erstelle `.mcp.json` im Projektroot mit den MCP Servern für shadcn, Next.js Dev
 {
   "mcpServers": {
     "shadcn": {
-      "command": "bunx",
-      "args": ["shadcn@latest", "mcp"]
+      "command": "pnpm",
+      "args": ["dlx", "shadcn@latest", "mcp"]
     },
     "next-devtools": {
-      "command": "bunx",
-      "args": ["-y", "next-devtools-mcp@latest"]
+      "command": "pnpm",
+      "args": ["dlx", "next-devtools-mcp@latest"]
     },
     "ultracite": {
-      "command": "bunx",
-      "args": ["-y", "mcp-remote", "https://docs.ultracite.ai/mcp"]
+      "command": "pnpm",
+      "args": ["dlx", "mcp-remote", "https://docs.ultracite.ai/mcp"]
     }
   }
 }
@@ -117,7 +156,7 @@ Erstelle `.claude/settings.json` im Projektroot mit einem PostToolUse Hook, der 
       {
         "hooks": [
           {
-            "command": "bun fix --skip=correctness/noUnusedImports",
+            "command": "pnpm fix --skip=correctness/noUnusedImports",
             "type": "command"
           }
         ],
@@ -159,6 +198,19 @@ Erstelle `biome.jsonc` im Projektroot. **Kritisch:** shadcn/ui-Komponenten werde
     {
       // shadcn/ui components — keep in default state, do not lint or format
       "includes": ["src/components/ui/**"],
+      "formatter": {
+        "enabled": false
+      },
+      "linter": {
+        "enabled": false
+      },
+      "assist": {
+        "enabled": false
+      }
+    },
+    {
+      // HTML files — template files, do not lint or format
+      "includes": ["*.html"],
       "formatter": {
         "enabled": false
       },
@@ -254,11 +306,12 @@ export default defineConfig({
 
 ### 2.6 package.json Scripts
 
-Ersetze die `scripts`-Sektion in `package.json`. Stelle sicher, dass `"type": "module"` gesetzt ist:
+Ersetze die `scripts`-Sektion in `package.json`. Stelle sicher, dass `"type": "module"` und `"packageManager"` gesetzt sind:
 
 ```json
 {
   "type": "module",
+  "packageManager": "pnpm@10.26.2",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -268,11 +321,13 @@ Ersetze die `scripts`-Sektion in `package.json`. Stelle sicher, dass `"type": "m
     "test:watch": "vitest",
     "check": "ultracite check",
     "fix": "ultracite fix",
-    "prepare": "lefthook install",
-    "outdated": "bun outdated"
+    "install:lefthook": "lefthook install",
+    "outdated": "pnpm outdated"
   }
 }
 ```
+
+> **Wichtig:** `install:lefthook` statt `prepare` verwenden! Das `prepare`-Script wird bei jedem `pnpm install` ausgeführt — auch in Docker-Builds, wo `git` nicht verfügbar ist. `lefthook install` braucht `git` und bricht den Docker-Build ab. Nach dem lokalen `pnpm install` einmalig `pnpm run install:lefthook` ausführen.
 
 ### 2.7 lefthook.yml (Git Hooks)
 
@@ -281,7 +336,7 @@ Erstelle `lefthook.yml` im Projektroot. Der Hook führt `ultracite fix` aus (nic
 ```yaml
 pre-commit:
   jobs:
-    - run: bun x ultracite fix
+    - run: pnpm exec ultracite fix
       glob:
         - "**/*.js"
         - "**/*.jsx"
@@ -423,6 +478,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
 > **TooltipProvider** wrapping ist erforderlich damit shadcn Tooltips funktionieren. `defaultTheme="dark"` statt `"system"` für konsistentere initiale Darstellung.
 
+Falls Authentik-Auth aktiviert ist, wird die `providers.tsx` um `SessionProvider` erweitert — siehe Phase 6.
+
 ### 3.4 layout.tsx
 
 ```typescript
@@ -494,9 +551,9 @@ This project uses **Ultracite**, a zero-config preset that enforces strict code 
 
 ## Quick Reference
 
-- **Format code**: `bun x ultracite fix`
-- **Check for issues**: `bun x ultracite check`
-- **Diagnose setup**: `bun x ultracite doctor`
+- **Format code**: `pnpm exec ultracite fix`
+- **Check for issues**: `pnpm exec ultracite check`
+- **Diagnose setup**: `pnpm exec ultracite doctor`
 
 Biome (the underlying engine) provides robust linting and formatting. Most issues are automatically fixable.
 
@@ -596,7 +653,7 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 
 ---
 
-Most formatting and common issues are automatically fixed by Biome. Run `bun x ultracite fix` before committing to ensure compliance.
+Most formatting and common issues are automatically fixed by Biome. Run `pnpm exec ultracite fix` before committing to ensure compliance.
 ```
 
 ---
@@ -606,16 +663,380 @@ Most formatting and common issues are automatically fixed by Biome. Run `bun x u
 Nach der vollständigen Einrichtung, führe den Formatter/Linter aus um sicherzustellen, dass alles den Konventionen entspricht:
 
 ```bash
-bun run fix
+pnpm run fix
 ```
 
 Prüfe danach:
 
 ```bash
-bun run check
+pnpm run check
 ```
 
 Behebe alle gemeldeten Fehler **außer** in `src/components/ui/` — diese Dateien sind von Biome ausgeschlossen und dürfen NICHT manuell reformatiert werden.
+
+---
+
+## Phase 6: Authentik-Authentifizierung (optional)
+
+Nur ausführen wenn der User Authentik-Login gewünscht hat.
+
+### 6.1 Dependencies
+
+```bash
+pnpm add next-auth@beta
+```
+
+### 6.2 Auth-Konfiguration
+
+Erstelle `src/lib/auth.ts`:
+
+```typescript
+import NextAuth from "next-auth";
+
+export const { handlers, signIn, signOut, auth } = NextAuth({
+  providers: [
+    {
+      id: "authentik",
+      name: "Authentik",
+      type: "oidc",
+      issuer: process.env.AUTHENTIK_ISSUER,
+      clientId: process.env.AUTHENTIK_CLIENT_ID,
+      clientSecret: process.env.AUTHENTIK_CLIENT_SECRET,
+      client: {
+        token_endpoint_auth_method: "client_secret_post",
+      },
+      profile(profile) {
+        return {
+          id: profile.sub,
+          name: profile.name ?? profile.preferred_username,
+          email: profile.email,
+          image: profile.picture ?? null,
+        };
+      },
+    },
+  ],
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
+  callbacks: {
+    authorized: async ({ auth: session }) => !!session,
+  },
+  trustHost: true,
+});
+```
+
+### 6.3 Auth API Route
+
+Erstelle `src/app/api/auth/[...nextauth]/route.ts`:
+
+```typescript
+import { handlers } from "@/lib/auth";
+
+export const { GET, POST } = handlers;
+```
+
+### 6.4 Middleware
+
+Erstelle `src/middleware.ts`:
+
+```typescript
+import { auth } from "@/lib/auth";
+
+export const middleware = auth;
+
+export const config = {
+  matcher: [
+    "/((?!api/auth|login|_next/static|_next/image|favicon\\.svg|manifest\\.json|icons/).*)",
+  ],
+};
+```
+
+> **Nicht** `export { auth as middleware }` verwenden — Biome meldet das als Barrel-File (`noBarrelFile`).
+
+### 6.5 Login-Seite
+
+Erstelle `src/app/login/page.tsx`:
+
+```typescript
+import { signIn } from "@/lib/auth";
+
+export default function LoginPage() {
+  return (
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-sm space-y-6 text-center">
+        <div>
+          <h1 className="font-bold text-2xl tracking-tight">App Name</h1>
+          <p className="mt-1 text-muted-foreground text-sm">hellomirrors</p>
+        </div>
+        <form
+          action={async () => {
+            "use server";
+            await signIn("authentik", { redirectTo: "/" });
+          }}
+        >
+          <button
+            type="submit"
+            className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 font-medium text-primary-foreground text-sm transition-colors hover:bg-primary/90"
+          >
+            Mit Authentik anmelden
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+```
+
+### 6.6 Providers erweitern
+
+Wenn Auth aktiv ist, wrapp die `providers.tsx` zusätzlich mit `SessionProvider`:
+
+```typescript
+"use client";
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { SessionProvider } from "next-auth/react";
+import { ThemeProvider } from "next-themes";
+import { useState } from "react";
+import { TooltipProvider } from "@/components/ui/tooltip";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 5 * 1000,
+            refetchOnWindowFocus: false,
+          },
+        },
+      })
+  );
+
+  return (
+    <SessionProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          disableTransitionOnChange
+        >
+          <TooltipProvider>{children}</TooltipProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </SessionProvider>
+  );
+}
+```
+
+### 6.7 ENV Variablen
+
+Erstelle `.env.example`:
+
+```env
+# Auth (Authentik OIDC)
+AUTH_URL=https://<app-name>.hellomirrors.com
+AUTH_SECRET=change-me-generate-with-openssl-rand-base64-32
+AUTHENTIK_ISSUER=https://authentik.hellomirrors.com/application/o/<app-slug>/
+AUTHENTIK_CLIENT_ID=
+AUTHENTIK_CLIENT_SECRET=
+AUTH_TRUST_HOST=true
+```
+
+### 6.8 Authentik-Einrichtung (Anleitung für den User)
+
+Erstelle `docs/authentik-setup.md` mit Schritt-für-Schritt Anleitung:
+
+1. **Provider erstellen** in Authentik: Applications → Providers → Create → OAuth2/OpenID Provider
+   - Name: `<app-slug>`
+   - Authorization flow: `default-provider-authorization-explicit-consent`
+   - Client type: `Confidential`
+   - Redirect URIs: `https://<app-url>/api/auth/callback/authentik` (+ `http://localhost:3000/api/auth/callback/authentik` für Dev)
+   - Scopes: `openid`, `profile`, `email`
+   - **Signing Key:** Einen Key auswählen
+   - **⚠️ Encryption Key: LEER LASSEN!** NextAuth unterstützt kein JWE. Wenn ein Encryption Key gesetzt ist, sendet Authentik verschlüsselte id_tokens die NextAuth nicht entschlüsseln kann → `JWE decryption is not configured` Fehler.
+
+2. **Application erstellen**: Applications → Applications → Create
+   - Name: `<App Name>`
+   - Slug: `<app-slug>`
+   - Provider: den eben erstellten Provider auswählen
+
+3. **Zugriff einschränken (optional)**: Policy / Group / User Bindings
+
+4. **ENV Variablen** in Coolify setzen (inkl. `AUTH_URL` mit der öffentlichen App-URL)
+
+5. **Issuer URL testen**: `https://authentik.hellomirrors.com/application/o/<app-slug>/.well-known/openid-configuration` muss ein JSON liefern
+
+### 6.9 Bekannte Fallstricke bei Authentik + NextAuth
+
+| Problem | Ursache | Lösung |
+|---------|---------|--------|
+| `JWE decryption is not configured` | Encryption Key ist im Authentik Provider gesetzt | In Authentik den **Encryption Key entfernen** (Signing Key behalten) |
+| Redirect zu `0.0.0.0:3000` nach Login | `AUTH_URL` ENV Variable fehlt | `AUTH_URL=https://<app>.hellomirrors.com` setzen |
+| `error=Configuration` ohne Details | `AUTHENTIK_CLIENT_ID` oder `AUTHENTIK_CLIENT_SECRET` leer | In Coolify prüfen ob die ENV Variablen befüllt sind |
+| OIDC Discovery schlägt fehl | Container kann `authentik.hellomirrors.com` nicht per DNS auflösen | Netzwerk-Konfiguration prüfen |
+| `noBarrelFile` Lint-Fehler bei Middleware | `export { auth as middleware }` Pattern | Stattdessen `export const middleware = auth;` verwenden |
+
+---
+
+## Phase 7: Docker & Coolify Deployment
+
+### 7.1 next.config.ts für Docker
+
+```typescript
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  output: "standalone",
+  experimental: {
+    typedEnv: true,
+  },
+  // Falls native Pakete verwendet werden (z.B. better-sqlite3):
+  // serverExternalPackages: ["better-sqlite3"],
+};
+
+export default nextConfig;
+```
+
+### 7.2 Dockerfile
+
+```dockerfile
+FROM node:22-slim AS base
+RUN corepack enable && corepack prepare pnpm@10.26.2 --activate
+
+# Install dependencies only when needed
+FROM base AS deps
+# Build tools für native Dependencies (z.B. better-sqlite3) — nur wenn benötigt
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml ./
+# --ignore-scripts verhindert dass "prepare"/"install:lefthook" läuft (braucht git, nicht in Docker)
+# Danach native deps explizit rebuilden
+RUN pnpm install --frozen-lockfile --shamefully-hoist --ignore-scripts && \
+    pnpm rebuild esbuild
+# Falls better-sqlite3 verwendet wird:
+# RUN pnpm install --frozen-lockfile --shamefully-hoist --ignore-scripts && \
+#     pnpm rebuild better-sqlite3 esbuild
+
+# Rebuild the source code only when needed
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN pnpm run build
+
+# Production image
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd --system --gid 1001 nodejs
+RUN useradd --system --uid 1001 --gid nodejs nextjs
+
+COPY --from=builder /app/public ./public
+
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
+
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Full node_modules für server-external packages (native bindings)
+COPY --from=deps /app/node_modules ./node_modules
+
+# Default ENV config
+COPY --from=builder /app/.env.example ./.env
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+CMD ["node", "server.js"]
+```
+
+### 7.3 docker-compose.yaml
+
+**Wichtig für Coolify:** Kein `ports` verwenden — nur `expose`. Coolify managt Port-Binding über seinen Reverse Proxy. Hardcoded `ports: "3000:3000"` kollidiert mit anderen Services auf dem Server.
+
+```yaml
+services:
+  <app-name>:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    expose:
+      - "3000"
+    environment:
+      - AUTH_URL=${AUTH_URL:-https://<app-name>.hellomirrors.com}
+      - AUTH_SECRET=${AUTH_SECRET}
+      - AUTHENTIK_ISSUER=${AUTHENTIK_ISSUER:-https://authentik.hellomirrors.com/application/o/<app-slug>/}
+      - AUTHENTIK_CLIENT_ID=${AUTHENTIK_CLIENT_ID}
+      - AUTHENTIK_CLIENT_SECRET=${AUTHENTIK_CLIENT_SECRET}
+      - AUTH_TRUST_HOST=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+# Falls persistenter Speicher benötigt wird (z.B. SQLite):
+#   volumes:
+#     - app-data:/app/data
+#
+# volumes:
+#   app-data:
+```
+
+### 7.4 .dockerignore
+
+```
+node_modules
+.next
+.git
+.gitignore
+data
+drizzle
+*.md
+!README.md
+.env
+.env.local
+.env.*.local
+!.env.example
+.claude
+.mcp.json
+docker-compose.yaml
+```
+
+### 7.5 Coolify Deployment Checkliste
+
+1. **Build Pack:** Docker Compose
+2. **Docker Compose Location:** `/docker-compose.yaml`
+3. **"Load Compose File"** klicken um die Datei aus dem Repo zu laden
+4. **Environment Variables** in Coolify setzen (alle `${VAR}` Variablen aus dem Compose)
+5. **Persistent Storage:** Falls Volumes definiert sind, erscheinen sie automatisch nach Compose-Load
+
+### 7.6 Bekannte Docker/Coolify Fallstricke
+
+| Problem | Ursache | Lösung |
+|---------|---------|--------|
+| `pnpm install` schlägt fehl mit `exec: "git": not found` | `prepare`/`lefthook install` Script läuft bei `pnpm install` | Script in `install:lefthook` umbenennen + `--ignore-scripts` im Dockerfile |
+| `Bind for 0.0.0.0:3000 failed: port already allocated` | `ports: "3000:3000"` im Compose kollidiert mit anderem Service | `expose: "3000"` statt `ports` verwenden (Coolify managt Ports) |
+| `.env.example` nicht im Container | `.env.*` in `.dockerignore` schließt `.env.example` aus | Explizit `!.env.example` in `.dockerignore` ausschließen |
+| Build fehlerfrei, Container startet nicht | `output: "standalone"` fehlt in `next.config.ts` | `output: "standalone"` hinzufügen |
+| Native Deps fehlen zur Laufzeit | `serverExternalPackages` nicht konfiguriert | Native Pakete in `serverExternalPackages` auflisten + `COPY --from=deps node_modules` |
 
 ---
 
@@ -658,7 +1079,7 @@ API Routes (app/api/) <-> API Client (lib/api-client.ts)
 
 5. **Zustand für Client-State** — UI-State, der nicht vom Server kommt (z.B. Sidebar offen/zu, aktiver Tab, User-Präferenzen) lebt in Zustand-Stores. Viele Apps brauchen keinen Zustand Store — React Query reicht oft aus.
 
-6. **shadcn/ui-Komponenten sind unantastbar** — Dateien in `src/components/ui/` werden NIEMALS manuell editiert oder von Biome formatiert. Neue Komponenten kommen via `bunx shadcn@latest add <name>`.
+6. **shadcn/ui-Komponenten sind unantastbar** — Dateien in `src/components/ui/` werden NIEMALS manuell editiert oder von Biome formatiert. Neue Komponenten kommen via `pnpx shadcn@latest add <name>`.
 
 7. **Feature-Module** — Zusammengehörige UI-Logik wird in `src/features/<feature-name>/` gruppiert. Jedes Feature-Modul enthält seine eigenen Komponenten.
 
@@ -855,17 +1276,22 @@ describe("Validation rules", () => {
 
 Stelle sicher, dass folgende Punkte erfüllt sind, bevor du dem User die App übergibst:
 
-- [ ] `bun run build` läuft fehlerfrei
-- [ ] `bun run check` (ultracite) hat keine Fehler
+- [ ] `pnpm run build` läuft fehlerfrei
+- [ ] `pnpm run check` (ultracite) hat keine Fehler
 - [ ] `src/components/ui/` ist von Biome ausgeschlossen (biome.jsonc overrides inkl. `assist`)
 - [ ] Providers (QueryClient + ThemeProvider + TooltipProvider) sind im Root-Layout eingebunden
 - [ ] `cn()` Utility existiert in `src/lib/utils.ts`
 - [ ] Zod ist eingerichtet und ein Beispiel-Schema in `src/domain/schema.ts` vorhanden
 - [ ] `vitest.config.ts` ist konfiguriert mit `@/` Alias (via `import.meta.dirname`)
 - [ ] Kein ESLint — nur Biome/Ultracite
+- [ ] Biome-Version ist auf die von Ultracite benötigte Version gepinnt
 - [ ] Git Hooks via lefthook konfiguriert (fix + stage_fixed)
+- [ ] lefthook Script heißt `install:lefthook` (nicht `prepare`!)
 - [ ] `AGENTS.md` mit Ultracite Code Standards erstellt
 - [ ] `.claude/settings.json` mit PostToolUse Hook erstellt
 - [ ] `globals.css` enthält `scrollbar-gutter: stable` und `@custom-variant dark`
 - [ ] Font via `variable: "--font-sans"` Pattern eingebunden
-- [ ] `"type": "module"` in package.json gesetzt
+- [ ] `"type": "module"` und `"packageManager"` in package.json gesetzt
+- [ ] Falls Auth: Authentik OIDC funktioniert, kein Encryption Key in Authentik gesetzt
+- [ ] Falls Docker: `output: "standalone"` in next.config.ts, Dockerfile mit `--ignore-scripts`
+- [ ] Falls Coolify: `expose` statt `ports` im docker-compose, `.env.example` nicht in .dockerignore
